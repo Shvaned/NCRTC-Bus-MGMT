@@ -1,25 +1,22 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { memo, useState, useMemo, useCallback } from "react"
 import dynamic from "next/dynamic"
 import { useQuery } from "@tanstack/react-query"
 import { useSession } from "next-auth/react"
-import { PageHeader } from "@/components/enterprise/page-header"
 import { SlidingDrawer } from "@/components/enterprise/sliding-drawer"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Separator } from "@/components/ui/separator"
 import { Search, Navigation, Gauge, Clock, MapPin, User, Bus } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { VEHICLE_STATUS_COLORS, VEHICLE_STATUS_LABELS, MAP_DEFAULTS, POLL_INTERVAL } from "@/modules/avls/constants"
+import { VEHICLE_STATUS_COLORS, VEHICLE_STATUS_LABELS, POLL_INTERVAL } from "@/modules/avls/constants"
 import type { VehicleLiveInfo, VehicleTrail } from "@/modules/avls/types"
 
-// Dynamically import Leaflet map to avoid SSR window error
 const LiveMap = dynamic(() => import("./_map"), { ssr: false })
 
-function FleetKPIs({ stats }: { stats: any }) {
+const FleetKPIs = memo(function FleetKPIs({ stats }: { stats: Record<string, number> }) {
   return (
     <div className="grid grid-cols-5 gap-2">
       {[
@@ -37,30 +34,32 @@ function FleetKPIs({ stats }: { stats: any }) {
       ))}
     </div>
   )
-}
+})
 
 export default function ControlRoomAVLSPage() {
   const { data: session } = useSession()
-  const user = session?.user as unknown as Record<string, unknown>
 
   const [depotFilter, setDepotFilter] = useState("")
   const [search, setSearch] = useState("")
   const [selectedVehicleId, setSelectedVehicleId] = useState<string | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
-  const params = new URLSearchParams()
-  if (depotFilter) params.set("depotId", depotFilter)
-  if (search) params.set("search", search)
+  const paramsStr = useMemo(() => {
+    const p = new URLSearchParams()
+    if (depotFilter) p.set("depotId", depotFilter)
+    if (search) p.set("search", search)
+    return p.toString()
+  }, [depotFilter, search])
 
   const { data: liveData, isLoading: liveLoading } = useQuery<{ success: true; data: VehicleLiveInfo[] }>({
     queryKey: ["avls-live", depotFilter, search],
-    queryFn: () => fetch(`/api/v1/avls/live?${params}`).then((r) => r.json()),
+    queryFn: () => fetch(`/api/v1/avls/live?${paramsStr}`).then((r) => r.json()),
     refetchInterval: POLL_INTERVAL,
   })
 
-  const { data: statsData } = useQuery<{ success: true; data: any }>({
+  const { data: statsData } = useQuery<{ success: true; data: Record<string, number> }>({
     queryKey: ["avls-stats", depotFilter],
-    queryFn: () => fetch(`/api/v1/avls/stats?${params}`).then((r) => r.json()),
+    queryFn: () => fetch(`/api/v1/avls/stats?${paramsStr}`).then((r) => r.json()),
     refetchInterval: POLL_INTERVAL,
   })
 
@@ -73,7 +72,10 @@ export default function ControlRoomAVLSPage() {
 
   const vehicles = liveData?.data ?? []
   const stats = statsData?.data ?? { total: 0, active: 0, idle: 0, offline: 0, maintenance: 0, offRoute: 0 }
-  const selectedVehicle = vehicles.find((v) => v.vehicleId === selectedVehicleId)
+  const selectedVehicle = useMemo(
+    () => vehicles.find((v) => v.vehicleId === selectedVehicleId) ?? null,
+    [vehicles, selectedVehicleId]
+  )
   const trail = trailData?.data
 
   const depots = useMemo(() => {
@@ -82,12 +84,51 @@ export default function ControlRoomAVLSPage() {
     return Array.from(seen.entries())
   }, [vehicles])
 
-  const trailPositions: [number, number][] = useMemo(() =>
-    trail?.pings?.map((p) => [p.latitude, p.longitude] as [number, number]) ?? []
-  , [trail])
+  const trailPositions: [number, number][] = useMemo(
+    () => trail?.pings?.map((p) => [p.latitude, p.longitude] as [number, number]) ?? [],
+    [trail]
+  )
+
+  const handleVehicleClick = useCallback((id: string) => {
+    setSelectedVehicleId(id)
+    setDrawerOpen(true)
+  }, [])
+
+  const handleDrawerChange = useCallback((open: boolean) => {
+    setDrawerOpen(open)
+    if (!open) setSelectedVehicleId(null)
+  }, [])
+
+  // Memoize side panel vehicles
+  const vehicleList = useMemo(() =>
+    vehicles.map((v) => (
+      <button
+        key={v.vehicleId}
+        className={cn(
+          "w-full text-left p-3 hover:bg-accent/50 transition-colors",
+          selectedVehicleId === v.vehicleId && "bg-accent"
+        )}
+        onClick={() => handleVehicleClick(v.vehicleId)}
+      >
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium">{v.registrationNumber}</span>
+          <div className="size-2 rounded-full shrink-0" style={{ backgroundColor: VEHICLE_STATUS_COLORS[v.status] }} />
+        </div>
+        <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+          <Gauge className="size-3" /><span>{v.speed} km/h</span>
+          <span>·</span><span>{VEHICLE_STATUS_LABELS[v.status]}</span>
+        </div>
+        {v.routeName && (
+          <div className="text-xs text-muted-foreground mt-0.5">
+            <MapPin className="size-3 inline mr-1" />{v.routeName}
+          </div>
+        )}
+      </button>
+    )),
+  [vehicles, selectedVehicleId, handleVehicleClick])
 
   return (
-    <div className="flex flex-col h-[calc(100vh-3.5rem)] -m-4 md:-m-6">
+    <div className="flex flex-col h-full overflow-hidden -m-4 md:-m-6">
       {/* Top bar */}
       <div className="flex items-center gap-3 px-4 py-2 border-b border-border bg-card shrink-0">
         <div className="flex items-center gap-2">
@@ -115,57 +156,34 @@ export default function ControlRoomAVLSPage() {
         </div>
       </div>
 
+      {/* KPIs bar */}
       <div className="px-4 py-2 border-b border-border bg-card/50 shrink-0">
         <FleetKPIs stats={stats} />
       </div>
 
+      {/* Map + Panel */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Map — 70% */}
         <div className="flex-1 relative bg-muted">
           {liveLoading ? (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Skeleton className="w-full h-full" />
-            </div>
+            <div className="absolute inset-0"><Skeleton className="w-full h-full rounded-none" /></div>
           ) : (
             <LiveMap
               vehicles={vehicles}
               selectedVehicleId={selectedVehicleId}
               trailPositions={trailPositions}
-              onVehicleClick={(id: string) => { setSelectedVehicleId(id); setDrawerOpen(true) }}
+              onVehicleClick={handleVehicleClick}
+              isDrawerOpen={drawerOpen}
             />
           )}
         </div>
 
-        {/* Side Panel — 30% */}
+        {/* Side panel */}
         <div className="w-80 border-l border-border bg-card overflow-auto shrink-0 hidden lg:block">
-          <div className="p-3 border-b border-border">
+          <div className="p-3 border-b border-border sticky top-0 bg-card z-10">
             <h3 className="text-sm font-medium">Vehicles ({vehicles.length})</h3>
           </div>
           <div className="divide-y divide-border">
-            {vehicles.map((v) => (
-              <button
-                key={v.vehicleId}
-                className={cn(
-                  "w-full text-left p-3 hover:bg-accent/50 transition-colors",
-                  selectedVehicleId === v.vehicleId && "bg-accent"
-                )}
-                onClick={() => { setSelectedVehicleId(v.vehicleId); setDrawerOpen(true) }}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{v.registrationNumber}</span>
-                  <div className="size-2 rounded-full shrink-0" style={{ backgroundColor: VEHICLE_STATUS_COLORS[v.status] }} />
-                </div>
-                <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                  <Gauge className="size-3" /><span>{v.speed} km/h</span>
-                  <span>·</span><span>{VEHICLE_STATUS_LABELS[v.status]}</span>
-                </div>
-                {v.routeName && (
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    <MapPin className="size-3 inline mr-1" />{v.routeName}
-                  </div>
-                )}
-              </button>
-            ))}
+            {vehicleList}
             {vehicles.length === 0 && (
               <div className="p-4 text-center text-sm text-muted-foreground">No vehicles found</div>
             )}
@@ -173,11 +191,12 @@ export default function ControlRoomAVLSPage() {
         </div>
       </div>
 
-      {/* Vehicle Detail Drawer */}
+      {/* Vehicle Detail Drawer — no backdrop blur */}
       <SlidingDrawer
         open={drawerOpen}
-        onOpenChange={(o) => { setDrawerOpen(o); if (!o) setSelectedVehicleId(null) }}
+        onOpenChange={handleDrawerChange}
         title="Vehicle Details"
+        overlayClassName="fixed inset-0 z-50 bg-black/10 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0"
       >
         {selectedVehicle ? (
           <div className="space-y-4 px-1">

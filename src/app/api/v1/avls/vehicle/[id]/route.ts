@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { avlsRepository } from "@/modules/avls/repositories/avls.repository"
+import { avlsService } from "@/modules/avls/services/avls.service"
 import { successResponse, errorResponse } from "@/lib/utils/api-response"
 import { canViewAVLS } from "@/modules/avls/permissions"
 import { getAuthUser, unauthorized } from "@/modules/avls/api/session"
@@ -17,30 +17,11 @@ export async function GET(
 
   try {
     const { id } = await context.params
-    const state = await avlsRepository.getVehicleState(id)
-    if (!state?.vehicle) {
+    const detail = await avlsService.getVehicleDetail(id)
+    if (!detail) {
       return NextResponse.json(errorResponse("NOT_FOUND", "Vehicle not found"), { status: 404 })
     }
-
-    return NextResponse.json(successResponse({
-      vehicleId: state.vehicleId,
-      registrationNumber: state.vehicle.registrationNumber,
-      vehicleType: state.vehicle.vehicleType,
-      depotName: state.vehicle.depot?.name ?? null,
-      depotId: state.vehicle.depotId,
-      speed: Number(state.speed ?? 0),
-      heading: Number(state.heading ?? 0),
-      status: state.status,
-      driverId: state.driverId,
-      driverName: null,
-      routeId: state.routeId,
-      routeName: null,
-      ignition: state.ignition,
-      lastPingAt: state.lastPingAt?.toISOString() ?? null,
-      tripStatus: state.tripStatus,
-      latitude: Number(state.vehicle.currentLatitude ?? 0),
-      longitude: Number(state.vehicle.currentLongitude ?? 0),
-    }))
+    return NextResponse.json(successResponse(detail))
   } catch (err) {
     return NextResponse.json(errorResponse("INTERNAL_ERROR", "Failed to get vehicle"), { status: 500 })
   }

@@ -17,6 +17,7 @@ interface SlidingDrawerProps {
   children: React.ReactNode
   side?: "left" | "right"
   className?: string
+  overlayClassName?: string
 }
 
 export function SlidingDrawer({
@@ -27,10 +28,11 @@ export function SlidingDrawer({
   children,
   side = "right",
   className,
+  overlayClassName,
 }: SlidingDrawerProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side={side} className={cn("sm:max-w-lg w-full overflow-auto", className)}>
+      <SheetContent side={side} className={cn("sm:max-w-lg w-full overflow-auto", className)} overlayClassName={overlayClassName}>
         <SheetHeader className="mb-4">
           <SheetTitle>{title}</SheetTitle>
           {description && <SheetDescription>{description}</SheetDescription>}
