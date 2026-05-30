@@ -431,7 +431,7 @@ Follow these steps to evaluate the full system:
 9. Click **Publish All** to publish draft duties
 
 ### Phase 3: Driver Experience
-10. Login as `driver.raj.01` / `password123`
+10. Login as `driver.vinod.12` / `password123`
 11. View **Today's Duty** (`/driver/duty`) — tap **Acknowledge**
 12. Open **Notices** (`/driver/notices`) — read the notice you published
 13. Navigate to **Panic** (`/driver/panic`) — hold the red button for 2.5 seconds
