@@ -13,6 +13,13 @@ export const metadata: Metadata = {
   description: "Enterprise Bus Management System for National Capital Region Transport Corporation",
   manifest: "/manifest.json",
   appleWebApp: { capable: true, title: "NCRTC BMS", statusBarStyle: "black-translucent" },
+  other: {
+    "apple-mobile-web-app-capable": "yes",
+    "apple-mobile-web-app-status-bar-style": "black-translucent",
+  },
+  icons: {
+    apple: "/icons/icon-192.png",
+  },
 }
 
 export const viewport: Viewport = {
@@ -26,21 +33,16 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-      </head>
       <body className={inter.className}>
-        <ThemeProvider>
-          <AuthProvider>
+        <AuthProvider>
+          <ThemeProvider>
             <QueryProvider>
               <AppProvider>
                 {children}
               </AppProvider>
             </QueryProvider>
-          </AuthProvider>
-        </ThemeProvider>
+          </ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   )
