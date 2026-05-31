@@ -4,6 +4,8 @@
 
 A full-stack, production-style modular monolith built with Next.js 16, TypeScript, PostgreSQL/PostGIS, and Docker — covering live vehicle tracking, crew scheduling, incident management, notice communications, and executive analytics.
 
+https://ncrtc-bus-mgmt.vercel.app/admin
+
 <p align="left">
   <img src="https://img.shields.io/badge/Next.js-16-black?logo=next.js" alt="Next.js 16" />
   <img src="https://img.shields.io/badge/TypeScript-5-blue?logo=typescript" alt="TypeScript" />
